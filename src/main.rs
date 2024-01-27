@@ -95,7 +95,7 @@ impl CPU {
     }
 
     fn push_stack(&mut self, memory: &mut Mem, value: u8) {
-        let sp_address = 0x0100 + self.pc as usize;
+        let sp_address = 0x0100 + self.sp as usize;
         memory.write(sp_address, value);
         self.sp = self.sp.wrapping_sub(1);
     }
@@ -148,14 +148,16 @@ fn main() {
     let mut cpu = CPU::new();
 
     // Write program into memory
-    memory.write(0xFFFC, INS_LDA_ZP);
+    memory.write(0xFFFC, INS_JSR);
     memory.write(0xFFFD, 0x42);
-    memory.write(0x0042, 0x84);
+    memory.write(0xFFFE, 0x42);
+    memory.write(0x4242, INS_LDA_IM);
+    memory.write(0x4243, 0x84);
 
     // Set the program counter to the start of the program.
     cpu.pc = 0xFFFC;
 
-    let mut cycles: u32 = 3;
+    let mut cycles: u32 = 9;
     cpu.execute(&mut memory, &mut cycles);
 
     println!("Accumulator: {}", cpu.a);
