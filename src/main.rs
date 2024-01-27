@@ -1,7 +1,10 @@
 const MAX_MEM: usize = 1024 * 64;
+
+// Opcodes
 const INS_LDA_IM: u8 = 0xA9;
 const INS_LDA_ZP: u8 = 0xA5;
 const INS_LDA_ZPX: u8 = 0xB5;
+const INS_JSR: u8 = 0x20;
 
 struct Mem {
     data: [u8; MAX_MEM],
@@ -11,8 +14,8 @@ impl Mem {
     fn new() -> Mem {
         Mem { data: [0; MAX_MEM] }
     }
-    fn write(&mut self, address: usize, value: u8) {
-        self.data[address] = value;
+    fn write(&mut self, address: usize, data: u8) {
+        self.data[address] = data;
     }
 }
 
@@ -70,13 +73,40 @@ impl CPU {
     // Read a byte from memory.
     fn read_byte(&mut self, cycles: &mut u32, memory: &Mem) -> u8 {
         let data = memory.data[self.pc as usize];
+
         self.pc = self.pc.wrapping_add(1);
         *cycles = cycles.saturating_sub(1);
+
         data
     }
 
+    // Read a word(u16) from memory in little endian format.
+    fn read_word(&mut self, cycles: &mut u32, memory: &Mem) -> u16 {
+        let low = memory.data[self.pc as usize] as u16;
+        self.pc = self.pc.wrapping_add(1);
+
+        let high = (memory.data[self.pc as usize] as u16) << 8;
+        self.pc = self.pc.wrapping_add(1);
+
+        let data = low | high;
+        *cycles = cycles.saturating_sub(2);
+
+        data
+    }
+
+    fn push_stack(&mut self, memory: &mut Mem, value: u8) {
+        let sp_address = 0x0100 + self.pc as usize;
+        memory.write(sp_address, value);
+        self.sp = self.sp.wrapping_sub(1);
+    }
+
+    fn push_stack_word(&mut self, memory: &mut Mem, value: u16) {
+        self.push_stack(memory, (value >> 8) as u8);
+        self.push_stack(memory, (value & 0xFF) as u8);
+    }
+
     // Execute instructions
-    fn execute(&mut self, memory: &Mem, cycles: &mut u32) {
+    fn execute(&mut self, memory: &mut Mem, cycles: &mut u32) {
         while *cycles > 0 {
             let ins = self.read_byte(cycles, memory);
             match ins {
@@ -101,6 +131,12 @@ impl CPU {
                     self.z = self.a == 0;
                     self.n = (self.a & 0b1000_0000) != 0;
                 }
+                INS_JSR => {
+                    let address = self.read_word(cycles, memory);
+                    self.push_stack_word(memory, self.pc - 1);
+                    self.pc = address;
+                    *cycles = cycles.wrapping_sub(6);
+                }
                 _ => {}
             }
         }
@@ -120,7 +156,7 @@ fn main() {
     cpu.pc = 0xFFFC;
 
     let mut cycles: u32 = 3;
-    cpu.execute(&memory, &mut cycles);
+    cpu.execute(&mut memory, &mut cycles);
 
     println!("Accumulator: {}", cpu.a);
     println!("Zero Flag: {}", cpu.z);
