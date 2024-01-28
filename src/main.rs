@@ -231,5 +231,4 @@ fn main() {
     println!("Accumulator: {:#x}", cpu.a);
     println!("Zero Flag: {}", cpu.z);
     println!("Negative Flag: {}", cpu.n);
-    // Fetch the byte from memory.
 }
