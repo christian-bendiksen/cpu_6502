@@ -80,42 +80,53 @@ impl CPU {
 
     // Reads a byte from memory at the current program counter and increments the counter.
     fn read_byte(&mut self, cycles: &mut u32, memory: &Mem) -> u8 {
-        let data = memory.data[self.pc as usize]; // Fetch the byte from memory.
-        self.pc = self.pc.wrapping_add(1); // Increment the program counter.
-        *cycles = cycles.saturating_sub(1); // Decrement the cycle counter.
+        // Fetch the byte from memory.
+        let data = memory.data[self.pc as usize];
+        // Increment the program counter.
+        self.pc = self.pc.wrapping_add(1);
+        // Decrement the cycle counter.
+        *cycles = cycles.saturating_sub(1);
         data
     }
 
     // Read a 16-bit word from memory at the current program counter using little endian format.
     fn read_word(&mut self, cycles: &mut u32, memory: &Mem) -> u16 {
-        let low = memory.data[self.pc as usize] as u16; // Fetch the low byte.
+        // Fetch the low byte.
+        let low = memory.data[self.pc as usize] as u16;
         self.pc = self.pc.wrapping_add(1);
 
-        let high = (memory.data[self.pc as usize] as u16) << 8; // Fetch the high byte and shift.
+        // Fetch the high byte and shift.
+        let high = (memory.data[self.pc as usize] as u16) << 8;
         self.pc = self.pc.wrapping_add(1);
 
         *cycles = cycles.saturating_sub(2);
-        low | high // Combine the low and high bytes.
+        // Combine the low and high bytes.
+        low | high
     }
 
     // Pushes a byte onto the stack and decrement the stack pointer.
     fn push_stack(&mut self, memory: &mut Mem, value: u8) {
-        let sp_address = 0x0100 + self.sp as usize; // Calculate the stack address.
+        // Calculate the stack address.
+        let sp_address = 0x0100 + self.sp as usize;
         self.sp = self.sp.wrapping_sub(1);
-        memory.write(sp_address, value); // Write the byte to the stack address.
+        // Write the byte to the stack address.
+        memory.write(sp_address, value);
     }
 
     // Pushes a 16-bit word onto the stack in two parts (high byte first).
     fn push_stack_word(&mut self, memory: &mut Mem, value: u16) {
-        self.push_stack(memory, (value >> 8) as u8); // Push high byte.
-        self.push_stack(memory, (value & 0xFF) as u8); // Push low byte.
+        // Push low byte.
+        self.push_stack(memory, (value >> 8) as u8);
+        // Push high byte.
+        self.push_stack(memory, (value & 0xFF) as u8);
     }
 
     // Pulls a byte from the stack and increments the stack pointer.
     fn pull_stack(&mut self, memory: &Mem) -> u8 {
         let sp_address = 0x0100 + self.sp as usize;
         self.sp = self.sp.wrapping_add(1);
-        memory.data[sp_address] // Return the byte from the stack.
+        // Return the byte from the stack.
+        memory.data[sp_address]
     }
 
     // Pulls a 16-bit word from the stack (low byte first).
@@ -127,9 +138,10 @@ impl CPU {
 
     // Sets the Zero and Negative flags depending on the accumulator's state.
     fn set_default_flags(&mut self) {
-        self.z = self.a == 0; // Set Zero flag if accumulator is zero.
-        self.n = (self.a & 0b1000_0000) != 0; // Set Negative flag based on high bit of
-                                              // accumulator.
+        // Set Zero flag if accumulator is zero.
+        self.z = self.a == 0;
+        // Set Negative flag based on high bit of accumulator.
+        self.n = (self.a & 0b1000_0000) != 0;
     }
 
     // Execute CPU instructions.
@@ -219,4 +231,5 @@ fn main() {
     println!("Accumulator: {:#x}", cpu.a);
     println!("Zero Flag: {}", cpu.z);
     println!("Negative Flag: {}", cpu.n);
+    // Fetch the byte from memory.
 }
