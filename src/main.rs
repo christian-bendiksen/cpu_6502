@@ -187,11 +187,21 @@ impl CPU {
                 INS_LDA_ABS => {
                     let absolute_address = self.read_word(cycles, memory);
                     self.a = memory.data[absolute_address as usize];
+                    self.set_default_flags();
+                    *cycles = cycles.wrapping_sub(4);
                 }
                 INS_LDA_ABS_X => {
                     let absolute_address = self.read_word(cycles, memory);
                     let absolute_address_x = absolute_address.wrapping_add(self.x as u16);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
+
                     self.a = memory.data[absolute_address_x as usize];
+                    self.set_default_flags();
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
