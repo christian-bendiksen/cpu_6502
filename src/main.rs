@@ -7,6 +7,7 @@ const INS_LDA_ZP: u8 = 0xA5; // Opcode for LDA with zero-page addressing mode.
 const INS_LDA_ZPX: u8 = 0xB5; // Opcode for LDA with zero-page,X addressing mode.
 const INS_LDA_ABS: u8 = 0xAD; // Opcode for LDA with Absolute addressing mode.
 const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mode.
+const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 
@@ -196,6 +197,19 @@ impl CPU {
                     let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
 
                     self.a = memory.data[absolute_address_x as usize];
+                    self.set_default_flags();
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                INS_LDA_ABS_Y => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    let absolute_address_y = absolute_address.wrapping_add(self.y as u16);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
+
+                    self.a = memory.data[absolute_address_y as usize];
                     self.set_default_flags();
 
                     *cycles = cycles.wrapping_sub(4);
