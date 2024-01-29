@@ -5,6 +5,8 @@ const MAX_MEM: usize = 1024 * 64;
 const INS_LDA_IM: u8 = 0xA9; // Opcode for LDA with immediate addressing mode.
 const INS_LDA_ZP: u8 = 0xA5; // Opcode for LDA with zero-page addressing mode.
 const INS_LDA_ZPX: u8 = 0xB5; // Opcode for LDA with zero-page,X addressing mode.
+const INS_LDA_ABS: u8 = 0xAD; // Opcode for LDA with Absolute addressing mode.
+const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 
@@ -181,6 +183,15 @@ impl CPU {
                         zero_page_address.wrapping_add(self.x as usize) & 0x00FF;
                     // Load the calculated address into the accumulator.
                     self.a = memory.data[zero_page_address_x];
+                }
+                INS_LDA_ABS => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    self.a = memory.data[absolute_address as usize];
+                }
+                INS_LDA_ABS_X => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as u16);
+                    self.a = memory.data[absolute_address_x as usize];
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
