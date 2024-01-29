@@ -8,6 +8,7 @@ const INS_LDA_ZPX: u8 = 0xB5; // Opcode for LDA with zero-page,X addressing mode
 const INS_LDA_ABS: u8 = 0xAD; // Opcode for LDA with Absolute addressing mode.
 const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mode.
 const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mode.
+const INS_LDA_IND_X: u8 = 0xA1;
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 
@@ -185,26 +186,38 @@ impl CPU {
                     // Load the calculated address into the accumulator.
                     self.a = memory.data[zero_page_address_x];
                 }
+                // Handle LDA with Absolute addressing mode.
                 INS_LDA_ABS => {
+                    // Read a 16-bit (two-byte) address from the current program counter position.
                     let absolute_address = self.read_word(cycles, memory);
+                    // Load the value at the fetched address into the accumulator
                     self.a = memory.data[absolute_address as usize];
                     self.set_default_flags();
+
                     *cycles = cycles.wrapping_sub(4);
                 }
+                // Handle LDA with Absolute,X addressing mode.
                 INS_LDA_ABS_X => {
+                    // Read a 16-bit base address and add X register to it.
                     let absolute_address = self.read_word(cycles, memory);
                     let absolute_address_x = absolute_address.wrapping_add(self.x as u16);
+                    // Check if adding X crosses a page boundary (256-byte boundary).
                     let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
 
+                    // Load the value from the computed address into the accumulator.
                     self.a = memory.data[absolute_address_x as usize];
                     self.set_default_flags();
 
+                    // This mode takes 4 cycles, plus 1 additional cycle if page boundary is
+                    // crossed.
                     *cycles = cycles.wrapping_sub(4);
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
                 }
+                // Handle LDA with Absolute,Y addressing mode.
                 INS_LDA_ABS_Y => {
+                    // Similar to Absolute,X but using the Y register instead.
                     let absolute_address = self.read_word(cycles, memory);
                     let absolute_address_y = absolute_address.wrapping_add(self.y as u16);
                     let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
@@ -216,6 +229,23 @@ impl CPU {
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
+                }
+                // Handle LDA with Indexed Indirect addressing mode.
+                INS_LDA_IND_X => {
+                    // Read an 8-bit address, add the X register to it, and use it to find a 16-bit
+                    // address in the zero page.
+                    let address = self.read_byte(cycles, memory) as usize;
+                    let table_address = address.wrapping_add(self.x as usize);
+
+                    // Fetch the low and high bytes of indirect address from the zero page.
+                    let low_byte = memory.data[table_address] as u16;
+                    let high_byte = memory.data[table_address.wrapping_add(1)] as u16;
+                    // Combine the low and high bytes to form the complete indirect address.
+                    let indirect_address = (high_byte << 8) | low_byte;
+                    // Load the value from the indirect address into the accumulator.
+                    self.a = memory.data[indirect_address as usize];
+
+                    *cycles = cycles.wrapping_sub(6);
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
