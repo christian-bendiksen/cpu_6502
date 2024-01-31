@@ -8,7 +8,8 @@ const INS_LDA_ZPX: u8 = 0xB5; // Opcode for LDA with zero-page,X addressing mode
 const INS_LDA_ABS: u8 = 0xAD; // Opcode for LDA with Absolute addressing mode.
 const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mode.
 const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mode.
-const INS_LDA_IND_X: u8 = 0xA1;
+const INS_LDA_IND_X: u8 = 0xA1; // Opcode for LDA with Indirect,X addressing mode.
+const INS_LDA_IND_Y: u8 = 0xB1; // Opcode for LDA with Indirect,Y addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 
@@ -109,34 +110,37 @@ impl CPU {
     }
 
     // Pushes a byte onto the stack and decrement the stack pointer.
-    fn push_stack(&mut self, memory: &mut Mem, value: u8) {
+    fn push_stack(&mut self, cycles: &mut u32, memory: &mut Mem, value: u8) {
         // Calculate the stack address.
         let sp_address = 0x0100 + self.sp as usize;
         self.sp = self.sp.wrapping_sub(1);
         // Write the byte to the stack address.
         memory.write(sp_address, value);
+
+        *cycles = cycles.wrapping_sub(1);
     }
 
     // Pushes a 16-bit word onto the stack in two parts (high byte first).
-    fn push_stack_word(&mut self, memory: &mut Mem, value: u16) {
+    fn push_stack_word(&mut self, cycles: &mut u32, memory: &mut Mem, value: u16) {
         // Push low byte.
-        self.push_stack(memory, (value >> 8) as u8);
+        self.push_stack(cycles, memory, (value >> 8) as u8);
         // Push high byte.
-        self.push_stack(memory, (value & 0xFF) as u8);
+        self.push_stack(cycles, memory, (value & 0xFF) as u8);
     }
 
     // Pulls a byte from the stack and increments the stack pointer.
-    fn pull_stack(&mut self, memory: &Mem) -> u8 {
+    fn pull_stack(&mut self, cycles: &mut u32, memory: &Mem) -> u8 {
         let sp_address = 0x0100 + self.sp as usize;
         self.sp = self.sp.wrapping_add(1);
+        *cycles = cycles.wrapping_sub(1);
         // Return the byte from the stack.
         memory.data[sp_address]
     }
 
     // Pulls a 16-bit word from the stack (low byte first).
-    fn pull_stack_word(&mut self, memory: &Mem) -> u16 {
-        let low_byte = self.pull_stack(memory) as u16;
-        let high_byte = self.pull_stack(memory) as u16;
+    fn pull_stack_word(&mut self, cycles: &mut u32, memory: &Mem) -> u16 {
+        let low_byte = self.pull_stack(cycles, memory) as u16;
+        let high_byte = self.pull_stack(cycles, memory) as u16;
         (high_byte << 8) | low_byte
     }
 
@@ -169,12 +173,16 @@ impl CPU {
                     self.a = value;
                     // Update the Zero and Negative flags based on the new accumulator value.
                     self.set_default_flags();
+
+                    *cycles = cycles.wrapping_sub(1);
                 }
                 // Handle LDA with Zero Page addressing mode.
                 INS_LDA_ZP => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     self.a = memory.data[zero_page_address];
                     self.set_default_flags();
+
+                    *cycles = cycles.wrapping_sub(2);
                 }
                 // Handle LDA with Zero Page,X addressing mode.
                 INS_LDA_ZPX => {
@@ -185,6 +193,8 @@ impl CPU {
                         zero_page_address.wrapping_add(self.x as usize) & 0x00FF;
                     // Load the calculated address into the accumulator.
                     self.a = memory.data[zero_page_address_x];
+
+                    *cycles = cycles.wrapping_sub(3);
                 }
                 // Handle LDA with Absolute addressing mode.
                 INS_LDA_ABS => {
@@ -194,7 +204,7 @@ impl CPU {
                     self.a = memory.data[absolute_address as usize];
                     self.set_default_flags();
 
-                    *cycles = cycles.wrapping_sub(4);
+                    *cycles = cycles.wrapping_sub(2);
                 }
                 // Handle LDA with Absolute,X addressing mode.
                 INS_LDA_ABS_X => {
@@ -208,9 +218,7 @@ impl CPU {
                     self.a = memory.data[absolute_address_x as usize];
                     self.set_default_flags();
 
-                    // This mode takes 4 cycles, plus 1 additional cycle if page boundary is
-                    // crossed.
-                    *cycles = cycles.wrapping_sub(4);
+                    *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
@@ -225,7 +233,7 @@ impl CPU {
                     self.a = memory.data[absolute_address_y as usize];
                     self.set_default_flags();
 
-                    *cycles = cycles.wrapping_sub(4);
+                    *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
@@ -245,27 +253,43 @@ impl CPU {
                     // Load the value from the indirect address into the accumulator.
                     self.a = memory.data[indirect_address as usize];
 
-                    *cycles = cycles.wrapping_sub(6);
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_LDA_IND_Y => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+
+                    let low_byte = memory.data[zero_page_address] as u16;
+                    let high_byte = memory.data[zero_page_address.wrapping_add(1)] as u16;
+                    let zero_page_fetched = (high_byte << 8) | low_byte;
+                    let indirect_address = zero_page_fetched.wrapping_add(self.y as u16);
+                    let page_crossed = (zero_page_fetched & 0xFF00) != (indirect_address & 0xFF00);
+
+                    self.a = memory.data[indirect_address as usize];
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
                     // Read the next two bytes for the subroutine address.
                     let address = self.read_word(cycles, memory);
                     // Push the current program counter (minus one) onto the stack before jumping.
-                    self.push_stack_word(memory, self.pc - 1);
+                    self.push_stack_word(cycles, memory, self.pc - 1);
                     // Set the program counter to the subroutine address.
                     self.pc = address;
-                    // Subtract 6 cycles for the JSR operation.
-                    *cycles = cycles.wrapping_sub(6);
+                    // Subtract 2 cycles more cycles for a total of 6 for the JSR operation.
+                    *cycles = cycles.wrapping_sub(2);
                 }
                 // Handle RTS (Return from Subroutine).
                 INS_RTS => {
                     // Pull the return address from the stack.
-                    let address = self.pull_stack_word(memory);
+                    let address = self.pull_stack_word(cycles, memory);
                     // Set the program counter to one more than the pulled stack.
                     self.pc = address.wrapping_add(1);
-                    // Subtract 6 cycles for RTS operation.
-                    *cycles = cycles.saturating_sub(6);
+                    // Subtract 4 more cycles for a total of 6 cycles for RTS operation.
+                    *cycles = cycles.saturating_sub(4);
                 }
                 _ => {}
             }
