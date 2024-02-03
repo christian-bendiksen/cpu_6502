@@ -10,6 +10,7 @@ const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mod
 const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mode.
 const INS_LDA_IND_X: u8 = 0xA1; // Opcode for LDA with Indirect,X addressing mode.
 const INS_LDA_IND_Y: u8 = 0xB1; // Opcode for LDA with Indirect,Y addressing mode.
+const INS_LDX_IM: u8 = 0xA2; // Opcode for LDX with immediate addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 
@@ -144,12 +145,11 @@ impl CPU {
         (high_byte << 8) | low_byte
     }
 
-    // Sets the Zero and Negative flags depending on the accumulator's state.
-    fn set_default_flags(&mut self) {
-        // Set Zero flag if accumulator is zero.
-        self.z = self.a == 0;
-        // Set Negative flag based on high bit of accumulator.
-        self.n = (self.a & 0b1000_0000) != 0;
+    // Sets the Zero flags if accumulator is zero.
+    // Set Negative flag based on high bit of accumulator.
+    fn set_flags(&mut self, value: u8) {
+        self.z = value == 0;
+        self.n = (value & 0b1000_0000) != 0;
     }
 
     // Execute CPU instructions.
@@ -172,15 +172,14 @@ impl CPU {
                     // Load the read value into the accumulator.
                     self.a = value;
                     // Update the Zero and Negative flags based on the new accumulator value.
-                    self.set_default_flags();
-
+                    self.set_flags(self.a);
                     *cycles = cycles.wrapping_sub(1);
                 }
                 // Handle LDA with Zero Page addressing mode.
                 INS_LDA_ZP => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     self.a = memory.data[zero_page_address];
-                    self.set_default_flags();
+                    self.set_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
@@ -202,7 +201,7 @@ impl CPU {
                     let absolute_address = self.read_word(cycles, memory);
                     // Load the value at the fetched address into the accumulator
                     self.a = memory.data[absolute_address as usize];
-                    self.set_default_flags();
+                    self.set_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
@@ -216,7 +215,7 @@ impl CPU {
 
                     // Load the value from the computed address into the accumulator.
                     self.a = memory.data[absolute_address_x as usize];
-                    self.set_default_flags();
+                    self.set_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
@@ -231,7 +230,7 @@ impl CPU {
                     let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
 
                     self.a = memory.data[absolute_address_y as usize];
-                    self.set_default_flags();
+                    self.set_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
@@ -270,6 +269,14 @@ impl CPU {
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
+                }
+                // Similar to LDA IM. Handle LDX with Immediate addressing mode.
+                INS_LDX_IM => {
+                    let value = self.read_byte(cycles, memory);
+                    self.x = value;
+                    self.set_flags(self.x);
+
+                    *cycles = cycles.wrapping_sub(1);
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
