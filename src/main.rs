@@ -11,8 +11,20 @@ const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mod
 const INS_LDA_IND_X: u8 = 0xA1; // Opcode for LDA with Indirect,X addressing mode.
 const INS_LDA_IND_Y: u8 = 0xB1; // Opcode for LDA with Indirect,Y addressing mode.
 const INS_LDX_IM: u8 = 0xA2; // Opcode for LDX with immediate addressing mode.
+const INS_LDX_ZP: u8 = 0xA6; // Opcode for LDX with zero-page addressing mode.                             
+const INS_LDX_ZPY: u8 = 0xB6; // Opcode for LDX with zero-page,Y addressing mode. 
+const INS_LDX_ABS: u8 = 0xAE; // Opcode for LDX with Absolute addressing mode.
+const INS_LDX_ABS_Y: u8 = 0xBE; // Opcode for LDX with Absolute,Y addressing mode.
+const INS_LDY_IM: u8 = 0xA0; // Opcode for LDY with immediate addressing mode.                                
+const INS_LDY_ZP: u8 = 0xA4; // Opcode for LDY with zero-page addressing mode.
+const INS_LDY_ZPX: u8 = 0xB4; // Opcode for LDY with zero-page,X addressing mode.                             
+const INS_LDY_ABS: u8 = 0xAC; // Opcode for LDY with Absolute addressing mode.
+const INS_LDY_ABS_X: u8 = 0xBC; // Opcode for LDY with Absolute,X addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
+const INS_LSR_A: u8 = 0x4A; // Opcode for Logical Shift Right Accumulator.
+const INS_LSR_ZP: u8 = 0x46; // Opcode for Logical Shift Right zero-page.                        
+const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.                             
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -147,7 +159,7 @@ impl CPU {
 
     // Sets the Zero flags if accumulator is zero.
     // Set Negative flag based on high bit of accumulator.
-    fn set_flags(&mut self, value: u8) {
+    fn set_zero_and_negative_flags(&mut self, value: u8) {
         self.z = value == 0;
         self.n = (value & 0b1000_0000) != 0;
     }
@@ -172,14 +184,14 @@ impl CPU {
                     // Load the read value into the accumulator.
                     self.a = value;
                     // Update the Zero and Negative flags based on the new accumulator value.
-                    self.set_flags(self.a);
+                    self.set_zero_and_negative_flags(self.a);
                     *cycles = cycles.wrapping_sub(1);
                 }
                 // Handle LDA with Zero Page addressing mode.
                 INS_LDA_ZP => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     self.a = memory.data[zero_page_address];
-                    self.set_flags(self.a);
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
@@ -189,9 +201,10 @@ impl CPU {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     // Wrap the address around the zero page boundary (0x0FF).
                     let zero_page_address_x =
-                        zero_page_address.wrapping_add(self.x as usize) & 0x00FF;
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
                     // Load the calculated address into the accumulator.
                     self.a = memory.data[zero_page_address_x];
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(3);
                 }
@@ -201,7 +214,7 @@ impl CPU {
                     let absolute_address = self.read_word(cycles, memory);
                     // Load the value at the fetched address into the accumulator
                     self.a = memory.data[absolute_address as usize];
-                    self.set_flags(self.a);
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
@@ -215,7 +228,7 @@ impl CPU {
 
                     // Load the value from the computed address into the accumulator.
                     self.a = memory.data[absolute_address_x as usize];
-                    self.set_flags(self.a);
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
@@ -230,7 +243,7 @@ impl CPU {
                     let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
 
                     self.a = memory.data[absolute_address_y as usize];
-                    self.set_flags(self.a);
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                     if page_crossed {
@@ -251,6 +264,7 @@ impl CPU {
                     let indirect_address = (high_byte << 8) | low_byte;
                     // Load the value from the indirect address into the accumulator.
                     self.a = memory.data[indirect_address as usize];
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(5);
                 }
@@ -264,6 +278,7 @@ impl CPU {
                     let page_crossed = (zero_page_fetched & 0xFF00) != (indirect_address & 0xFF00);
 
                     self.a = memory.data[indirect_address as usize];
+                    self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(4);
                     if page_crossed {
@@ -274,9 +289,94 @@ impl CPU {
                 INS_LDX_IM => {
                     let value = self.read_byte(cycles, memory);
                     self.x = value;
-                    self.set_flags(self.x);
+                    self.set_zero_and_negative_flags(self.x);
 
                     *cycles = cycles.wrapping_sub(1);
+                }
+                // Similar to LDA ZP. Handle LDX with zero-page addressing mode.
+                INS_LDX_ZP => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    self.x = memory.data[zero_page_address];
+                    self.set_zero_and_negative_flags(self.x);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                // Similar to LDA ZPX. Handle LDX with zero-page,Y addressing mode.
+                INS_LDX_ZPY => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_y = zero_page_address.wrapping_add(self.y as usize) & 0xFF;
+                    self.x = memory.data[zero_page_address_y];
+                    self.set_zero_and_negative_flags(self.x);
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
+                // Similar to LDA Absolute. Handle LDX with Absolute addressing mode.
+                INS_LDX_ABS => {
+                    let absolute_address = self.read_word(cycles, memory); 
+                    self.x = memory.data[absolute_address as usize];
+
+                    self.set_zero_and_negative_flags(self.x);
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                // Similar to LDA Absolute,Y. Handle LDX with Absolute,Y addressing mode.
+                INS_LDX_ABS_Y => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    let absolute_address_y = absolute_address.wrapping_add(self.y as u16);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
+
+                    self.x = memory.data[absolute_address_y as usize];
+                    self.set_zero_and_negative_flags(self.x);
+
+                    *cycles = cycles.wrapping_sub(2);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                // Similar to LDA Immediate. Handle LDY with immediate addressing mode.
+                INS_LDY_IM => {
+                    let value = self.read_byte(cycles, memory);
+                    self.y = value;
+                    self.set_zero_and_negative_flags(self.y);
+
+                    *cycles = cycles.wrapping_sub(1);
+                }
+                INS_LDY_ZP => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    self.y = memory.data[zero_page_address];
+                    self.set_zero_and_negative_flags(self.y);
+
+                    *cycles = cycles.wrapping_sub(2);
+
+                }
+                // Similar to LDA zero-page,X. Handle LDY with zero-page,X addressing mode.
+                INS_LDY_ZPX => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    self.y = memory.data[zero_page_address_x];
+                    self.set_zero_and_negative_flags(self.y);
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
+                // Similar to LDA Absolute. Handle LDY with Absolute addressing mode.
+                INS_LDY_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    self.y = memory.data[absolute_address];
+                    self.set_zero_and_negative_flags(self.y);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_LDY_ABS_X => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
+
+                    self.y = memory.data[absolute_address_x];
+
+                    *cycles = cycles.wrapping_sub(2);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
@@ -297,6 +397,43 @@ impl CPU {
                     self.pc = address.wrapping_add(1);
                     // Subtract 4 more cycles for a total of 6 cycles for RTS operation.
                     *cycles = cycles.saturating_sub(4);
+                }
+                // Handle LSR (Logical Shift Right) Accumulator.
+                INS_LSR_A => {
+                    self.c = self.a & 0x01 != 0;
+                    self.a >>= 1;
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_LSR_ZP => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_fetched = memory.data[zero_page_address];
+
+                    self.c = zero_page_fetched & 0x01 != 0; 
+
+                    let zero_page_shifted = zero_page_fetched >> 1;
+
+                    memory.data[zero_page_address] = zero_page_shifted;
+
+                    self.set_zero_and_negative_flags(zero_page_shifted);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_LSR_ZPX => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    let zero_page_fetched = memory.data[zero_page_address_x];
+
+                    self.c = zero_page_fetched & 0x01 != 0;
+
+                    let zero_page_shifted = zero_page_fetched >> 1;
+
+                    memory.data[zero_page_address_x] = zero_page_shifted;
+
+                    self.set_zero_and_negative_flags(zero_page_shifted);
+
+                    *cycles = cycles.wrapping_sub(6);
                 }
                 _ => {}
             }
