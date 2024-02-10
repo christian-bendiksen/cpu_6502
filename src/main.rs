@@ -25,6 +25,9 @@ const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 const INS_LSR_A: u8 = 0x4A; // Opcode for Logical Shift Right Accumulator.
 const INS_LSR_ZP: u8 = 0x46; // Opcode for Logical Shift Right zero-page.                        
 const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.                             
+const INS_LSR_ABS: u8 = 0x4E; // Opcode for Logical Shift Right Absolute addressing mode.
+const INS_LSR_ABS_X: u8 = 0x5E; // Opcode for Logical Shift Right Absolute,X addressing mode.
+const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -434,6 +437,38 @@ impl CPU {
                     self.set_zero_and_negative_flags(zero_page_shifted);
 
                     *cycles = cycles.wrapping_sub(6);
+                }
+                INS_LSR_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_fetched = memory.data[absolute_address];
+
+                    self.c = absolute_fetched & 0x01 != 0;
+
+                    let absolute_shifted = absolute_fetched >> 1;
+
+                    memory.data[absolute_address] = absolute_shifted;
+
+                    self.set_zero_and_negative_flags(absolute_shifted);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_LSR_ABS_X => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+                    let absolute_address_fetched = memory.data[absolute_address_x];
+
+                    self.c = absolute_address_fetched & 0x01 != 0;
+
+                    let absolute_address_shifted = absolute_address_fetched >> 1;
+
+                    memory.data[absolute_address_x] = absolute_address_shifted;
+
+                    self.set_zero_and_negative_flags(absolute_address_shifted);
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_NOP => {
+                    *cycles = cycles.saturating_sub(1);
                 }
                 _ => {}
             }
