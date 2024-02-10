@@ -31,9 +31,11 @@ const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
 const INS_ORA_IM: u8 = 0x09; // Opcode for Logical Inclusive OR Immediate addressing mode.
 const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode. 
 const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode. 
-const INS_ORA_ABS: u8 = 0x0D; // Opcode for Logical Inclusive Absolute addressing mode.
-const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive Absolute,X addressing mode. 
-const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive Absolute, Y addressing mode.
+const INS_ORA_ABS: u8 = 0x0D; // Opcode for Logical Inclusive OR Absolute addressing mode.
+const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive OR Absolute,X addressing mode. 
+const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive OR Absolute, Y addressing mode.
+const INS_ORA_IND_X: u8 = 0x01; // Opcode for Logical Inclusive OR Indirect,X addressing mode.
+const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y addressing mode.
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
