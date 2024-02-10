@@ -31,6 +31,9 @@ const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
 const INS_ORA_IM: u8 = 0x09; // Opcode for Logical Inclusive OR Immediate addressing mode.
 const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode. 
 const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode. 
+const INS_ORA_ABS: u8 = 0x0D; // Opcode for Logical Inclusive Absolute addressing mode.
+const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive Absolute,X addressing mode. 
+const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive Absolute, Y addressing mode.
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
@@ -496,6 +499,69 @@ impl Cpu {
                     self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(3);
+                }
+                INS_ORA_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    self.a |= memory.data[absolute_address];
+
+                    self.set_zero_and_negative_flags(self.a);
+                    
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_ORA_ABS_X => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
+
+                    self.a |= memory.data[absolute_address_x];
+
+                    *cycles = cycles.wrapping_sub(2);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                INS_ORA_ABS_Y => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_y = absolute_address.wrapping_add(self.y as usize);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
+
+                    self.a |= memory.data[absolute_address_y];
+
+                    *cycles = cycles.wrapping_sub(2);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                INS_ORA_IND_X => {
+                    let address = self.read_byte(cycles, memory) as usize;
+                    let table_address = address.wrapping_add(self.x as usize);
+
+                    let low_byte = memory.data[table_address] as u16; 
+                    let high_byte = memory.data[table_address.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+
+                    self.a |= memory.data[indirect_address as usize];
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+
+                INS_ORA_IND_Y => {
+                    let address = self.read_byte(cycles, memory) as usize;
+                    let table_address = address.wrapping_add(self.y as usize);
+                    let page_crossed = (address & 0xFF00) != (table_address & 0xFF00);
+
+                    let low_byte = memory.data[table_address] as u16; 
+                    let high_byte = memory.data[table_address.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+
+                    self.a |= memory.data[indirect_address as usize];
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
                 }
                 _ => {}
             }
