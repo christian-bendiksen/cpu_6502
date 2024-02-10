@@ -28,7 +28,9 @@ const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.
 const INS_LSR_ABS: u8 = 0x4E; // Opcode for Logical Shift Right Absolute addressing mode.
 const INS_LSR_ABS_X: u8 = 0x5E; // Opcode for Logical Shift Right Absolute,X addressing mode.
 const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
-
+const INS_ORA_IM: u8 = 0x09; // Opcode for Logical Inclusive OR Immediate addressing mode.
+const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode. 
+const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode. 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
@@ -47,7 +49,7 @@ impl Mem {
 }
 
 // CPU struct represents the state of the CPU including registers and flags.
-struct CPU {
+struct Cpu {
     pc: u16, // Program counter: points to the next instruction to execute.
     sp: u16, // Stack pointer: points to the top of the stack.
     a: u8,   // Accumulator: used for arithmetic and logic operations.
@@ -63,10 +65,10 @@ struct CPU {
     n: bool, // Negative flag.
 }
 
-impl CPU {
+impl Cpu {
     // Constructs a new CPU with initial state.
-    fn new() -> CPU {
-        CPU {
+    fn new() -> Cpu {
+        Cpu {
             pc: 0xFFFD,
             sp: 0x0100,
             a: 0,
@@ -470,6 +472,31 @@ impl CPU {
                 INS_NOP => {
                     *cycles = cycles.saturating_sub(1);
                 }
+                INS_ORA_IM => {
+                    let address = self.read_byte(cycles, memory);
+                    self.a |= address;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(1);
+                }
+                INS_ORA_ZP => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    self.a |= memory.data[zero_page_address];
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_ORA_ZPX => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    self.a |= memory.data[zero_page_address_x];
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
                 _ => {}
             }
         }
@@ -478,7 +505,7 @@ impl CPU {
 
 fn main() {
     let mut memory = Mem::new();
-    let mut cpu = CPU::new();
+    let mut cpu = Cpu::new();
     // Write a subroutine at address 0x8000
     memory.write(0x8000, INS_LDA_IM); // Subroutine: LDA #$84
     memory.write(0x8001, 0x84);
