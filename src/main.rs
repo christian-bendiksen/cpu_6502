@@ -11,31 +11,33 @@ const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mod
 const INS_LDA_IND_X: u8 = 0xA1; // Opcode for LDA with Indirect,X addressing mode.
 const INS_LDA_IND_Y: u8 = 0xB1; // Opcode for LDA with Indirect,Y addressing mode.
 const INS_LDX_IM: u8 = 0xA2; // Opcode for LDX with immediate addressing mode.
-const INS_LDX_ZP: u8 = 0xA6; // Opcode for LDX with zero-page addressing mode.                             
-const INS_LDX_ZPY: u8 = 0xB6; // Opcode for LDX with zero-page,Y addressing mode. 
+const INS_LDX_ZP: u8 = 0xA6; // Opcode for LDX with zero-page addressing mode.
+const INS_LDX_ZPY: u8 = 0xB6; // Opcode for LDX with zero-page,Y addressing mode.
 const INS_LDX_ABS: u8 = 0xAE; // Opcode for LDX with Absolute addressing mode.
 const INS_LDX_ABS_Y: u8 = 0xBE; // Opcode for LDX with Absolute,Y addressing mode.
-const INS_LDY_IM: u8 = 0xA0; // Opcode for LDY with immediate addressing mode.                                
+const INS_LDY_IM: u8 = 0xA0; // Opcode for LDY with immediate addressing mode.
 const INS_LDY_ZP: u8 = 0xA4; // Opcode for LDY with zero-page addressing mode.
-const INS_LDY_ZPX: u8 = 0xB4; // Opcode for LDY with zero-page,X addressing mode.                             
+const INS_LDY_ZPX: u8 = 0xB4; // Opcode for LDY with zero-page,X addressing mode.
 const INS_LDY_ABS: u8 = 0xAC; // Opcode for LDY with Absolute addressing mode.
 const INS_LDY_ABS_X: u8 = 0xBC; // Opcode for LDY with Absolute,X addressing mode.
 const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
 const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
 const INS_LSR_A: u8 = 0x4A; // Opcode for Logical Shift Right Accumulator.
-const INS_LSR_ZP: u8 = 0x46; // Opcode for Logical Shift Right zero-page.                        
-const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.                             
+const INS_LSR_ZP: u8 = 0x46; // Opcode for Logical Shift Right zero-page.
+const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.
 const INS_LSR_ABS: u8 = 0x4E; // Opcode for Logical Shift Right Absolute addressing mode.
 const INS_LSR_ABS_X: u8 = 0x5E; // Opcode for Logical Shift Right Absolute,X addressing mode.
 const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
 const INS_ORA_IM: u8 = 0x09; // Opcode for Logical Inclusive OR Immediate addressing mode.
-const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode. 
-const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode. 
+const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode.
+const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode.
 const INS_ORA_ABS: u8 = 0x0D; // Opcode for Logical Inclusive OR Absolute addressing mode.
-const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive OR Absolute,X addressing mode. 
+const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive OR Absolute,X addressing mode.
 const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive OR Absolute, Y addressing mode.
 const INS_ORA_IND_X: u8 = 0x01; // Opcode for Logical Inclusive OR Indirect,X addressing mode.
 const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y addressing mode.
+const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
+
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
@@ -314,7 +316,8 @@ impl Cpu {
                 // Similar to LDA ZPX. Handle LDX with zero-page,Y addressing mode.
                 INS_LDX_ZPY => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
-                    let zero_page_address_y = zero_page_address.wrapping_add(self.y as usize) & 0xFF;
+                    let zero_page_address_y =
+                        zero_page_address.wrapping_add(self.y as usize) & 0xFF;
                     self.x = memory.data[zero_page_address_y];
                     self.set_zero_and_negative_flags(self.x);
 
@@ -322,7 +325,7 @@ impl Cpu {
                 }
                 // Similar to LDA Absolute. Handle LDX with Absolute addressing mode.
                 INS_LDX_ABS => {
-                    let absolute_address = self.read_word(cycles, memory); 
+                    let absolute_address = self.read_word(cycles, memory);
                     self.x = memory.data[absolute_address as usize];
 
                     self.set_zero_and_negative_flags(self.x);
@@ -356,12 +359,12 @@ impl Cpu {
                     self.set_zero_and_negative_flags(self.y);
 
                     *cycles = cycles.wrapping_sub(2);
-
                 }
                 // Similar to LDA zero-page,X. Handle LDY with zero-page,X addressing mode.
                 INS_LDY_ZPX => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
-                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    let zero_page_address_x =
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
                     self.y = memory.data[zero_page_address_x];
                     self.set_zero_and_negative_flags(self.y);
 
@@ -386,7 +389,6 @@ impl Cpu {
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
-
                 }
                 // Handle JSR (Jump to Subroutine).
                 INS_JSR => {
@@ -420,7 +422,7 @@ impl Cpu {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     let zero_page_fetched = memory.data[zero_page_address];
 
-                    self.c = zero_page_fetched & 0x01 != 0; 
+                    self.c = zero_page_fetched & 0x01 != 0;
 
                     let zero_page_shifted = zero_page_fetched >> 1;
 
@@ -432,7 +434,8 @@ impl Cpu {
                 }
                 INS_LSR_ZPX => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
-                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    let zero_page_address_x =
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
                     let zero_page_fetched = memory.data[zero_page_address_x];
 
                     self.c = zero_page_fetched & 0x01 != 0;
@@ -495,7 +498,8 @@ impl Cpu {
                 }
                 INS_ORA_ZPX => {
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
-                    let zero_page_address_x = zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    let zero_page_address_x =
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
                     self.a |= memory.data[zero_page_address_x];
 
                     self.set_zero_and_negative_flags(self.a);
@@ -507,7 +511,7 @@ impl Cpu {
                     self.a |= memory.data[absolute_address];
 
                     self.set_zero_and_negative_flags(self.a);
-                    
+
                     *cycles = cycles.wrapping_sub(2);
                 }
                 INS_ORA_ABS_X => {
@@ -538,7 +542,7 @@ impl Cpu {
                     let address = self.read_byte(cycles, memory) as usize;
                     let table_address = address.wrapping_add(self.x as usize);
 
-                    let low_byte = memory.data[table_address] as u16; 
+                    let low_byte = memory.data[table_address] as u16;
                     let high_byte = memory.data[table_address.wrapping_add(1)] as u16;
 
                     let indirect_address = (high_byte << 8) | low_byte;
@@ -553,7 +557,7 @@ impl Cpu {
                     let table_address = address.wrapping_add(self.y as usize);
                     let page_crossed = (address & 0xFF00) != (table_address & 0xFF00);
 
-                    let low_byte = memory.data[table_address] as u16; 
+                    let low_byte = memory.data[table_address] as u16;
                     let high_byte = memory.data[table_address.wrapping_add(1)] as u16;
 
                     let indirect_address = (high_byte << 8) | low_byte;
@@ -564,6 +568,11 @@ impl Cpu {
                     if page_crossed {
                         *cycles = cycles.wrapping_sub(1);
                     }
+                }
+                INS_PHA => {
+                    self.push_stack(cycles, memory, self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
                 }
                 _ => {}
             }
