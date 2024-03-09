@@ -37,8 +37,8 @@ const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive OR Absolute, Y a
 const INS_ORA_IND_X: u8 = 0x01; // Opcode for Logical Inclusive OR Indirect,X addressing mode.
 const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y addressing mode.
 const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
-
-// Memory struct emulates the RAM of the 6502 CPU.
+const INS_PHP: u8 = 0x08; // Opcode for PHP
+                          // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
 }
@@ -175,6 +175,8 @@ impl Cpu {
         self.z = value == 0;
         self.n = (value & 0b1000_0000) != 0;
     }
+
+    fn ins_php(&mut self, cycles: &mut u32, memory: &mut Mem) {}
 
     // Execute CPU instructions.
     // This function drives the CPU's execution based on the opcodes.
@@ -571,6 +573,23 @@ impl Cpu {
                 }
                 INS_PHA => {
                     self.push_stack(cycles, memory, self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                // Implementation of the PHP instruction
+                INS_PHP => {
+                    let mut flags: u8 = 0;
+
+                    // Push each flag onto the stack
+                    flags |= if self.c { 0b0000_0001 } else { 0 };
+                    flags |= if self.z { 0b0000_0010 } else { 0 };
+                    flags |= if self.i { 0b0000_0100 } else { 0 };
+                    flags |= if self.d { 0b0000_1000 } else { 0 };
+                    flags |= if self.b { 0b0001_0000 } else { 0 };
+                    flags |= if self.v { 0b0100_0000 } else { 0 };
+                    flags |= if self.n { 0b1000_0000 } else { 0 };
+
+                    self.push_stack(cycles, memory, flags);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
