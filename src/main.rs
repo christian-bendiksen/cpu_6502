@@ -38,7 +38,9 @@ const INS_ORA_IND_X: u8 = 0x01; // Opcode for Logical Inclusive OR Indirect,X ad
 const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y addressing mode.
 const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
 const INS_PHP: u8 = 0x08; // Opcode for PHP
-                          // Memory struct emulates the RAM of the 6502 CPU.
+const INS_PLA: u8 = 0x68; // Opcode for PLA
+
+// Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
     data: [u8; MAX_MEM],
 }
@@ -592,6 +594,12 @@ impl Cpu {
                     self.push_stack(cycles, memory, flags);
 
                     *cycles = cycles.wrapping_sub(2);
+                }
+                INS_PLA => {
+                    self.a = self.pull_stack(cycles, memory);
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(3);
                 }
                 _ => {}
             }
