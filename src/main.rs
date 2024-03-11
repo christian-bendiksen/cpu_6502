@@ -40,6 +40,11 @@ const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
 const INS_PHP: u8 = 0x08; // Opcode for PHP
 const INS_PLA: u8 = 0x68; // Opcode for PLA
 const INS_PLP: u8 = 0x28; // Opcode for PLP
+const INS_ROL_A: u8 = 0x2A; // Opcode for ROL - Rotate Left Accumulator addressing mode.
+const INS_ROL_ZP: u8 = 0x26; // Opcode for ROL - Rotate Left Zero Page addressing mode.
+const INS_ROL_ZPX: u8 = 0x36; // Opcode for ROL - Rotate Left Zero Page,X addressing mode.
+const INS_ROL_ABS: u8 = 0x2E; // Opcode for ROL - Rotate Left Absolute addressing mode.
+const INS_ROL_ABX: u8 = 0x3E; // Opcode for ROL - Rotate Left Absolute,X addressing mode.
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -118,7 +123,7 @@ impl Cpu {
         // Increment the program counter.
         self.pc = self.pc.wrapping_add(1);
         // Decrement the cycle counter.
-        *cycles = cycles.saturating_sub(1);
+        *cycles = cycles.wrapping_sub(1);
         data
     }
 
@@ -132,7 +137,7 @@ impl Cpu {
         let high = (memory.data[self.pc as usize] as u16) << 8;
         self.pc = self.pc.wrapping_add(1);
 
-        *cycles = cycles.saturating_sub(2);
+        *cycles = cycles.wrapping_sub(2);
         // Combine the low and high bytes.
         low | high
     }
@@ -614,6 +619,64 @@ impl Cpu {
                     self.b = true;
                     self.v = status & 0b0100_0000 != 0;
                     self.n = status & 0b1000_0000 != 0;
+                }
+                INS_ROL_A => {
+                    let carry_value = self.c as u8;
+                    let prev_a = self.a;
+
+                    // shift left and set bit 0 to the carry flag
+                    self.a = (prev_a << 1) | carry_value;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_ROL_ZP => {
+                    let carry = self.c as u8;
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let prev_a = memory.data[zero_page_address];
+
+                    self.a = (prev_a << 1) | carry;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_ROL_ZPX => {
+                    let carry = self.c as u8;
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_x =
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+                    let prev_a = memory.data[zero_page_address_x];
+
+                    self.a = (prev_a << 1) | carry;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_ROL_ABS => {
+                    let carry = self.c as u8;
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let prev_a = memory.data[absolute_address];
+
+                    self.a = (prev_a << 1) | carry;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_ROL_ABX => {
+                    let carry = self.c as u8;
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize) & 0xFF;
+                    let prev_a = memory.data[absolute_address_x];
+
+                    self.a = (prev_a << 1) | carry;
+
+                    self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(5);
                 }
                 _ => {}
             }
