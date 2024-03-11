@@ -39,6 +39,7 @@ const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y ad
 const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
 const INS_PHP: u8 = 0x08; // Opcode for PHP
 const INS_PLA: u8 = 0x68; // Opcode for PLA
+const INS_PLP: u8 = 0x28; // Opcode for PLP
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -600,6 +601,19 @@ impl Cpu {
                     self.set_zero_and_negative_flags(self.a);
 
                     *cycles = cycles.wrapping_sub(3);
+                }
+                INS_PLP => {
+                    let status = self.pull_stack(cycles, memory);
+
+                    // Set flags based on the bits of the status read from the stack
+                    self.c = status & 0b0000_0001 != 0;
+                    self.z = status & 0b0000_0010 != 0;
+                    self.i = status & 0b0000_0100 != 0;
+                    self.d = status & 0b0000_1000 != 0;
+                    // The B flag should always be set to 1 when read from the stack.
+                    self.b = true;
+                    self.v = status & 0b0100_0000 != 0;
+                    self.n = status & 0b1000_0000 != 0;
                 }
                 _ => {}
             }
