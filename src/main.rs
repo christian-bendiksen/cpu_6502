@@ -45,6 +45,11 @@ const INS_ROL_ZP: u8 = 0x26; // Opcode for ROL - Rotate Left Zero Page addressin
 const INS_ROL_ZPX: u8 = 0x36; // Opcode for ROL - Rotate Left Zero Page,X addressing mode.
 const INS_ROL_ABS: u8 = 0x2E; // Opcode for ROL - Rotate Left Absolute addressing mode.
 const INS_ROL_ABX: u8 = 0x3E; // Opcode for ROL - Rotate Left Absolute,X addressing mode.
+const INS_ROR_A: u8 = 0x6A; // Opcode for ROR - Rotate Right Accumulator addressing mode.
+const INS_ROR_ZP: u8 = 0x66; // Opcode for ROR - Rotate Right Zero Page addressing mode.
+const INS_ROR_ZPX: u8 = 0x76; // Opcode for ROR - Rotate Right Zero Page,X addressing mode.
+const INS_ROR_ABS: u8 = 0x6E; // Opcode for ROR - Rotate Right Absolute addressing mode.
+const INS_ROR_ABX: u8 = 0x7E; // Opcode for ROR - Rotate Right Absolute, X addressing mode.
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -183,8 +188,16 @@ impl Cpu {
         self.z = value == 0;
         self.n = (value & 0b1000_0000) != 0;
     }
-
-    fn ins_php(&mut self, cycles: &mut u32, memory: &mut Mem) {}
+    fn rol_rotate_left(&mut self, value: u8) {
+        let carry = self.c as u8;
+        self.a = (value << 1) | carry;
+        self.set_zero_and_negative_flags(self.a);
+    }
+    fn ror_rotate_right(&mut self, value: u8) {
+        let carry = self.c as u8;
+        self.a = (value >> 1) | carry;
+        self.set_zero_and_negative_flags(self.a);
+    }
 
     // Execute CPU instructions.
     // This function drives the CPU's execution based on the opcodes.
@@ -621,60 +634,69 @@ impl Cpu {
                     self.n = status & 0b1000_0000 != 0;
                 }
                 INS_ROL_A => {
-                    let carry_value = self.c as u8;
-                    let prev_a = self.a;
-
-                    // shift left and set bit 0 to the carry flag
-                    self.a = (prev_a << 1) | carry_value;
-
-                    self.set_zero_and_negative_flags(self.a);
+                    self.rol_rotate_left(self.a);
 
                     *cycles = cycles.wrapping_sub(2);
                 }
                 INS_ROL_ZP => {
-                    let carry = self.c as u8;
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
-                    let prev_a = memory.data[zero_page_address];
-
-                    self.a = (prev_a << 1) | carry;
-
-                    self.set_zero_and_negative_flags(self.a);
+                    self.rol_rotate_left(memory.data[zero_page_address]);
 
                     *cycles = cycles.wrapping_sub(4);
                 }
                 INS_ROL_ZPX => {
-                    let carry = self.c as u8;
                     let zero_page_address = self.read_byte(cycles, memory) as usize;
                     let zero_page_address_x =
                         zero_page_address.wrapping_add(self.x as usize) & 0xFF;
-                    let prev_a = memory.data[zero_page_address_x];
-
-                    self.a = (prev_a << 1) | carry;
-
-                    self.set_zero_and_negative_flags(self.a);
+                    self.rol_rotate_left(memory.data[zero_page_address_x]);
 
                     *cycles = cycles.wrapping_sub(5);
                 }
                 INS_ROL_ABS => {
-                    let carry = self.c as u8;
                     let absolute_address = self.read_word(cycles, memory) as usize;
-                    let prev_a = memory.data[absolute_address];
-
-                    self.a = (prev_a << 1) | carry;
-
-                    self.set_zero_and_negative_flags(self.a);
+                    self.rol_rotate_left(memory.data[absolute_address]);
 
                     *cycles = cycles.wrapping_sub(4);
                 }
                 INS_ROL_ABX => {
-                    let carry = self.c as u8;
                     let absolute_address = self.read_word(cycles, memory) as usize;
                     let absolute_address_x = absolute_address.wrapping_add(self.x as usize) & 0xFF;
-                    let prev_a = memory.data[absolute_address_x];
+                    self.rol_rotate_left(memory.data[absolute_address_x]);
 
-                    self.a = (prev_a << 1) | carry;
-
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_ROR_A => {
+                    self.ror_rotate_right(self.a);
                     self.set_zero_and_negative_flags(self.a);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_ROR_ZP => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    self.ror_rotate_right(memory.data[zero_page_address]);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_ROR_ZPX => {
+                    let zero_page_address = self.read_byte(cycles, memory) as usize;
+                    let zero_page_address_x =
+                        zero_page_address.wrapping_add(self.x as usize) & 0xFF;
+
+                    self.ror_rotate_right(memory.data[zero_page_address_x]);
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_ROR_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    self.ror_rotate_right(memory.data[absolute_address]);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_ROR_ABX => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+
+                    self.ror_rotate_right(memory.data[absolute_address_x]);
 
                     *cycles = cycles.wrapping_sub(5);
                 }
@@ -687,24 +709,22 @@ impl Cpu {
 fn main() {
     let mut memory = Mem::new();
     let mut cpu = Cpu::new();
-    // Write a subroutine at address 0x8000
-    memory.write(0x8000, INS_LDA_IM); // Subroutine: LDA #$84
-    memory.write(0x8001, 0x84);
-    memory.write(0x8002, INS_RTS); // Return from subroutine
 
-    // Write program into memory to call the subroutine
-    memory.write(0xFFFC, INS_JSR); // JSR to subroutine
-    memory.write(0xFFFD, 0x00); // Low byte of subroutine address
-    memory.write(0xFFFE, 0x80); // High byte of subroutine address
+    // Write a program to test the ROL instruction
+    memory.write(0x8000, INS_LDA_IM); // Load value 0b1000_0000 into accumulator
+    memory.write(0x8001, 0x80);
+    memory.write(0x8002, INS_ROL_A); // Rotate accumulator left
+    memory.write(0x8003, INS_RTS); // Return from subroutine
 
     // Set the program counter to the start of the program.
-    cpu.pc = 0xFFFC;
+    cpu.pc = 0x8000;
 
-    // Enough cycles to execute JSR, the subroutine, and RTS
-    let mut cycles: u32 = 50;
+    // Enough cycles to execute LDA, ROL, and RTS
+    let mut cycles: u32 = 10;
+    cpu.c = true;
     cpu.execute(&mut memory, &mut cycles);
 
-    println!("Accumulator: {:#x}", cpu.a);
+    println!("Accumulator after ROL: {:#x}", cpu.a);
     println!("Zero Flag: {}", cpu.z);
     println!("Negative Flag: {}", cpu.n);
 }
