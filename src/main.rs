@@ -1,55 +1,8 @@
+mod opcodes;
+use opcodes::opcodes::*;
+
 // Memory size for the 6502 processor which can address 64KB.
 const MAX_MEM: usize = 1024 * 64;
-
-// Opcodes for various 6502 assembly instructions.
-const INS_LDA_IM: u8 = 0xA9; // Opcode for LDA with immediate addressing mode.
-const INS_LDA_ZP: u8 = 0xA5; // Opcode for LDA with zero-page addressing mode.
-const INS_LDA_ZPX: u8 = 0xB5; // Opcode for LDA with zero-page,X addressing mode.
-const INS_LDA_ABS: u8 = 0xAD; // Opcode for LDA with Absolute addressing mode.
-const INS_LDA_ABS_X: u8 = 0xBD; // Opcode for LDA with Absolute,X addressing mode.
-const INS_LDA_ABS_Y: u8 = 0xB9; // Opcode for LDA with Absolute,Y addressing mode.
-const INS_LDA_IND_X: u8 = 0xA1; // Opcode for LDA with Indirect,X addressing mode.
-const INS_LDA_IND_Y: u8 = 0xB1; // Opcode for LDA with Indirect,Y addressing mode.
-const INS_LDX_IM: u8 = 0xA2; // Opcode for LDX with immediate addressing mode.
-const INS_LDX_ZP: u8 = 0xA6; // Opcode for LDX with zero-page addressing mode.
-const INS_LDX_ZPY: u8 = 0xB6; // Opcode for LDX with zero-page,Y addressing mode.
-const INS_LDX_ABS: u8 = 0xAE; // Opcode for LDX with Absolute addressing mode.
-const INS_LDX_ABS_Y: u8 = 0xBE; // Opcode for LDX with Absolute,Y addressing mode.
-const INS_LDY_IM: u8 = 0xA0; // Opcode for LDY with immediate addressing mode.
-const INS_LDY_ZP: u8 = 0xA4; // Opcode for LDY with zero-page addressing mode.
-const INS_LDY_ZPX: u8 = 0xB4; // Opcode for LDY with zero-page,X addressing mode.
-const INS_LDY_ABS: u8 = 0xAC; // Opcode for LDY with Absolute addressing mode.
-const INS_LDY_ABS_X: u8 = 0xBC; // Opcode for LDY with Absolute,X addressing mode.
-const INS_JSR: u8 = 0x20; // Opcode for Jump to Subroutine
-const INS_RTS: u8 = 0x60; // Opcode for Return from Soubroutine
-const INS_LSR_A: u8 = 0x4A; // Opcode for Logical Shift Right Accumulator.
-const INS_LSR_ZP: u8 = 0x46; // Opcode for Logical Shift Right zero-page.
-const INS_LSR_ZPX: u8 = 0x56; // Opcode for Logical Shift Right zero-page,X.
-const INS_LSR_ABS: u8 = 0x4E; // Opcode for Logical Shift Right Absolute addressing mode.
-const INS_LSR_ABS_X: u8 = 0x5E; // Opcode for Logical Shift Right Absolute,X addressing mode.
-const INS_NOP: u8 = 0xEA; // Opcode for No Operation.
-const INS_ORA_IM: u8 = 0x09; // Opcode for Logical Inclusive OR Immediate addressing mode.
-const INS_ORA_ZP: u8 = 0x05; // Opcode for Logical Inclusive OR Zero Page addressing mode.
-const INS_ORA_ZPX: u8 = 0x15; // Opcode for Logical Inclusive OR Zero Page,X addressing mode.
-const INS_ORA_ABS: u8 = 0x0D; // Opcode for Logical Inclusive OR Absolute addressing mode.
-const INS_ORA_ABS_X: u8 = 0x1D; // Opcode for Logical Inclusive OR Absolute,X addressing mode.
-const INS_ORA_ABS_Y: u8 = 0x19; // Opcode for Logical Inclusive OR Absolute, Y addressing mode.
-const INS_ORA_IND_X: u8 = 0x01; // Opcode for Logical Inclusive OR Indirect,X addressing mode.
-const INS_ORA_IND_Y: u8 = 0x11; // Opcode for Logical Inclusive OR Indirect,Y addressing mode.
-const INS_PHA: u8 = 0x48; // Opcode for PHA - Push accumulator.
-const INS_PHP: u8 = 0x08; // Opcode for PHP
-const INS_PLA: u8 = 0x68; // Opcode for PLA
-const INS_PLP: u8 = 0x28; // Opcode for PLP
-const INS_ROL_A: u8 = 0x2A; // Opcode for ROL - Rotate Left Accumulator addressing mode.
-const INS_ROL_ZP: u8 = 0x26; // Opcode for ROL - Rotate Left Zero Page addressing mode.
-const INS_ROL_ZPX: u8 = 0x36; // Opcode for ROL - Rotate Left Zero Page,X addressing mode.
-const INS_ROL_ABS: u8 = 0x2E; // Opcode for ROL - Rotate Left Absolute addressing mode.
-const INS_ROL_ABX: u8 = 0x3E; // Opcode for ROL - Rotate Left Absolute,X addressing mode.
-const INS_ROR_A: u8 = 0x6A; // Opcode for ROR - Rotate Right Accumulator addressing mode.
-const INS_ROR_ZP: u8 = 0x66; // Opcode for ROR - Rotate Right Zero Page addressing mode.
-const INS_ROR_ZPX: u8 = 0x76; // Opcode for ROR - Rotate Right Zero Page,X addressing mode.
-const INS_ROR_ABS: u8 = 0x6E; // Opcode for ROR - Rotate Right Absolute addressing mode.
-const INS_ROR_ABX: u8 = 0x7E; // Opcode for ROR - Rotate Right Absolute, X addressing mode.
 
 // Memory struct emulates the RAM of the 6502 CPU.
 struct Mem {
@@ -197,6 +150,19 @@ impl Cpu {
         let carry = self.c as u8;
         self.a = (value >> 1) | carry;
         self.set_zero_and_negative_flags(self.a);
+    }
+
+    fn subtract_with_carry(&mut self, operand: u8) {
+        let carry = if self.c { 0 } else { 1 };
+
+        let result = self.a.wrapping_sub(operand).wrapping_sub(carry);
+
+        self.c = self.a >= (operand + carry);
+        self.z = result == 0;
+        self.n = (result & 0x80) != 0;
+        self.v = (((self.a ^ operand) & 0x80) != 0) && (((self.a ^ result) & 0x80) != 0);
+
+        self.a = result;
     }
 
     // Execute CPU instructions.
@@ -426,12 +392,9 @@ impl Cpu {
                 }
                 // Handle RTS (Return from Subroutine).
                 INS_RTS => {
-                    // Pull the return address from the stack.
                     let address = self.pull_stack_word(cycles, memory);
-                    // Set the program counter to one more than the pulled stack.
                     self.pc = address.wrapping_add(1);
-                    // Subtract 4 more cycles for a total of 6 cycles for RTS operation.
-                    *cycles = cycles.saturating_sub(4);
+                    *cycles = cycles.saturating_sub(6);
                 }
                 // Handle LSR (Logical Shift Right) Accumulator.
                 INS_LSR_A => {
@@ -699,6 +662,104 @@ impl Cpu {
                     self.ror_rotate_right(memory.data[absolute_address_x]);
 
                     *cycles = cycles.wrapping_sub(5);
+                }
+                INS_RTI => {
+                    let status = self.pull_stack(cycles, memory);
+
+                    self.c = status & 0b0000_0001 != 0;
+                    self.z = status & 0b0000_0010 != 0;
+                    self.i = status & 0b0000_0100 != 0;
+                    self.d = status & 0b0000_1000 != 0;
+                    self.v = status & 0b0100_0000 != 0;
+                    self.n = status & 0b1000_0000 != 0;
+
+                    self.pc = self.pull_stack_word(cycles, memory);
+
+                    *cycles = cycles.wrapping_sub(6);
+                }
+                INS_SBC_IM => {
+                    let value = self.read_byte(cycles, memory);
+                    self.subtract_with_carry(value);
+
+                    *cycles = cycles.wrapping_sub(1);
+                }
+                INS_SBC_ZP => {
+                    let value = self.read_byte(cycles, memory);
+                    let value_zp = memory.data[value as usize];
+                    self.subtract_with_carry(value_zp);
+
+                    *cycles = cycles.wrapping_sub(2);
+                }
+                INS_SBC_ZPX => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let value_zpx = memory.data[zp_address.wrapping_add(self.x as usize)];
+                    self.subtract_with_carry(value_zpx);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_SBC_ABS => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    let value_abs = memory.data[absolute_address as usize];
+
+                    self.subtract_with_carry(value_abs);
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_SBC_ABX => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_x & 0xFF00);
+
+                    let value_abx = memory.data[absolute_address_x];
+                    self.subtract_with_carry(value_abx);
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                INS_SBC_ABY => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_y = absolute_address.wrapping_add(self.y as usize);
+                    let page_crossed = (absolute_address & 0xFF00) != (absolute_address_y & 0xFF00);
+
+                    let value_aby = memory.data[absolute_address_y];
+                    self.subtract_with_carry(value_aby);
+
+                    *cycles = cycles.wrapping_sub(4);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
+                }
+                INS_SBC_IND_X => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let zp_address_x = zp_address.wrapping_add(self.x as usize);
+
+                    let low_byte = memory.data[zp_address_x] as u16;
+                    let high_byte = memory.data[zp_address_x.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+
+                    self.subtract_with_carry(indirect_address as u8);
+
+                    *cycles = cycles.wrapping_sub(6);
+                }
+                INS_SBC_IND_Y => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let zp_address_y = zp_address.wrapping_add(self.y as usize);
+                    let page_crossed = (zp_address & 0xFF00) != (zp_address_y & 0xFF00);
+
+                    let low_byte = memory.data[zp_address_y] as u16;
+                    let high_byte = memory.data[zp_address_y.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+
+                    self.subtract_with_carry(indirect_address as u8);
+
+                    *cycles = cycles.wrapping_sub(5);
+                    if page_crossed {
+                        *cycles = cycles.wrapping_sub(1);
+                    }
                 }
                 _ => {}
             }
