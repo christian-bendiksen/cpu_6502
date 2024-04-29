@@ -827,6 +827,44 @@ impl Cpu {
 
                     *cycles = cycles.wrapping_sub(6);
                 }
+                INS_STX_ZP => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    memory.data[zp_address] = self.x;
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
+                INS_STX_ZPY => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let zp_address_y = zp_address.wrapping_add(self.y as usize);
+                    memory.data[zp_address_y] = self.x;
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_STX_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    memory.data[absolute_address] = self.x;
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_STY_ZP => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    memory.data[zp_address] = self.y;
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
+                INS_STY_ZPX => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let zp_address_x = zp_address.wrapping_add(self.x as usize);
+                    memory.data[zp_address_x] = self.y;
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_STY_ABS => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    memory.data[absolute_address] = self.y;
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
                 _ => {}
             }
         }
