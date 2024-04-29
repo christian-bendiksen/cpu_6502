@@ -57,4 +57,14 @@ pub mod opcodes {
     pub const INS_SBC_ABY: u8 = 0xF9;
     pub const INS_SBC_IND_X: u8 = 0xE1;
     pub const INS_SBC_IND_Y: u8 = 0xF1;
+    pub const INS_SEC: u8 = 0x38;
+    pub const INS_SED: u8 = 0xF8;
+    pub const INS_SEI: u8 = 0x78;
+    pub const INS_STA_ZP: u8 = 0x85;
+    pub const INS_STA_ZPX: u8 = 0x95;
+    pub const INS_STA_ABS: u8 = 0x8D;
+    pub const INS_STA_ABS_X: u8 = 0x9D;
+    pub const INS_STA_ABS_Y: u8 = 0x99;
+    pub const INS_STA_IND_X: u8 = 0x81;
+    pub const INS_STA_IND_Y: u8 = 0x91;
 }

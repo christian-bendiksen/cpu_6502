@@ -761,6 +761,72 @@ impl Cpu {
                         *cycles = cycles.wrapping_sub(1);
                     }
                 }
+                INS_SEC => {
+                    self.c = true;
+                }
+                INS_SED => {
+                    self.d = true;
+                }
+                INS_SEI => {
+                    self.i = true;
+                }
+                INS_STA_ZP => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    memory.data[zp_address] = self.a;
+
+                    *cycles = cycles.wrapping_sub(3);
+                }
+                INS_STA_ZPX => {
+                    let zp_address = self.read_byte(cycles, memory) as usize;
+                    let zp_address_x = zp_address.wrapping_add(self.x as usize);
+                    memory.data[zp_address_x] = self.a;
+
+                    *cycles = cycles.wrapping_add(4);
+                }
+                INS_STA_ABS => {
+                    let absolute_address = self.read_word(cycles, memory);
+                    memory.data[absolute_address as usize] = self.a;
+
+                    *cycles = cycles.wrapping_sub(4);
+                }
+                INS_STA_ABS_X => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_x = absolute_address.wrapping_add(self.x as usize);
+                    memory.data[absolute_address_x] = self.a;
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_STA_ABS_Y => {
+                    let absolute_address = self.read_word(cycles, memory) as usize;
+                    let absolute_address_y = absolute_address.wrapping_add(self.y as usize);
+                    memory.data[absolute_address_y] = self.a;
+
+                    *cycles = cycles.wrapping_sub(5);
+                }
+                INS_STA_IND_X => {
+                    let zp_address = self.read_word(cycles, memory) as usize;
+                    let zp_address_x = zp_address.wrapping_add(self.x as usize);
+
+                    let low_byte = memory.data[zp_address_x] as u16;
+                    let high_byte = memory.data[zp_address_x.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+                    memory.data[indirect_address as usize] = self.a;
+
+                    *cycles = cycles.wrapping_sub(6);
+                }
+                INS_STA_IND_Y => {
+                    let zp_address = self.read_word(cycles, memory) as usize;
+                    let zp_address_y = zp_address.wrapping_add(self.y as usize);
+
+                    let low_byte = memory.data[zp_address_y] as u16;
+                    let high_byte = memory.data[zp_address_y.wrapping_add(1)] as u16;
+
+                    let indirect_address = (high_byte << 8) | low_byte;
+                    memory.data[indirect_address as usize] = self.a;
+
+                    *cycles = cycles.wrapping_sub(6);
+                }
                 _ => {}
             }
         }
