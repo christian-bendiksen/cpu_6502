@@ -19,6 +19,15 @@ impl Mem {
         self.data[address] = data;
     }
 
+    pub fn get_byte(&self, address: usize) -> u8 {
+        // Safely access memory with bounds checking
+        if address < self.data.len() {
+            self.data[address]
+        } else {
+            // Handle out-of-bounds access, perhaps by returning 0 or some error indication
+            0
+        }
+    }
     // Reads a byte from memory at the current program counter and increments the counter.
     pub fn read_byte(&mut self, cycles: &mut u32, cpu: &mut Cpu) -> u8 {
         // Fetch the byte from memory.
